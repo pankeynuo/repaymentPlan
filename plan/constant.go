@@ -21,8 +21,10 @@ const (
 )
 
 const (
-	daysOfYear  = 360
-	daysOfMonth = 30
+	daysOfYear    = 360
+	daysOfMonth   = 30
+	numberOfWeek  = 26
+	numberOfMonth = 12
 )
 
 const (
