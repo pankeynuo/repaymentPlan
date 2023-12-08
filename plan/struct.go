@@ -1,8 +1,11 @@
 package main
 
-import "github.com/shopspring/decimal"
+import (
+	"github.com/shopspring/decimal"
+	"time"
+)
 
-type RepayPlanRequest struct {
+type Request struct {
 	LoanAmount    decimal.Decimal `json:"loanAmount" validate:"required"`     // 贷款金额
 	LoanStartDate string          `json:"loanStartDate" validate:"required"`  // 利息计算开始日期=开始贷款日期
 	LoanEndDate   string          `json:"loanEndDate"`                        // 利息计算结束日期=最后一次还款日
@@ -30,7 +33,7 @@ type SkipAndReduce struct {
 	ReducePeriodCount      int             `json:"reducePeriodCount"`
 	SkipPeriodCount        int             `json:"skipPeriodCount"`
 }
-type RepayPlanResponse struct {
+type Response struct {
 	RepayMethod      string            `json:"repayMethod"`            // 还款方式:01-等额本息  02-等额本金  03-到期（一次性）还本付息（息随本清)(到期一次性还本还息）  04-到期还本周期还息(分期付息到期还本（先息后本)) 05-等本等息（每期还本还息还款额都相等，每期计息的本金为贷款总本金）
 	LoanStartDate    string            `json:"loanStartDate"`          // 利息计算开始日期=开始贷款日期
 	LoanEndDate      string            `json:"loanEndDate"`            // 利息计算结束日期=最后一次还款日
@@ -76,4 +79,15 @@ type FeeOnTopRepayPlan struct {
 	PlanRepayPrinciple         decimal.Decimal `json:"planRepayPrinciple" description:"plan repay principle"`
 	PlanRepayInterest          decimal.Decimal `json:"planRepayInterest"`
 	MaintainPrinciple          decimal.Decimal `json:"maintainPrinciple" description:"maintain principle"`
+}
+type repayPlanRequest struct {
+	LoanAmount              decimal.Decimal // 贷款金额
+	LoanStartDate           string          // 利息计算开始日期=开始贷款日期
+	LoanEndDate             string          // 利息计算结束日期=最后一次还款日
+	LoanCycleCode           string          // 还款周期频率 01-daily 日 02-fortnightly 两周 03-monthly 月 04-quarterly 季 05-yearly 年
+	PeriodInterestRate      decimal.Decimal // 期利率
+	TotalPeriodNum          int             // 总期数
+	FirstRepayDate          string          // 首个还款日
+	LoanStartDateParseLocal time.Time
+	LoanEndDateParseLocal   time.Time
 }
