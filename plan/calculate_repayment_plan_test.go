@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
+	"github.com/shopspring/decimal"
 	"testing"
-	"time"
 )
 
 /**
@@ -12,13 +12,20 @@ import (
   *@Date 2023/12/4 11:17
 **/
 func Test_FirstRepayDate(t *testing.T) {
-	//nextRepayDate, err := getFirstRepayDate("2023-02-28", "03", 30) //月末问题
-	//fmt.Printf("a:%v,b:%v", nextRepayDate, err)
-	a := "2022-01-30"
-	b, _ := time.Parse("2006-01-02", a)
-	c := b.AddDate(0, 1, 0)
-	fmt.Printf("date:%s", c)
-
+	resp, err := CalculateRepaymentPlan(&Request{
+		LoanAmount:    decimal.NewFromFloat(10000),
+		LoanStartDate: "2023-01-01",
+		LoanEndDate:   "",
+		LoanCycleCode: "03",
+		InterestRate:  decimal.NewFromFloat(2),
+		RepayMethod:   "01", // 01-等额本息
+		PeriodNum:     10,
+		PeriodType:    "02", // 01-年 02-月
+		RepayDay:      30,
+		DaysOfYear:    360,
+		DaysOfMonth:   30,
+	})
+	fmt.Printf("resp:%v,error:%v", resp, err)
 }
 
 // 2023-01-20 还款日10 2023-02-10
