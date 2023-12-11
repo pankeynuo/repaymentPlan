@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"github.com/shopspring/decimal"
-	"log"
 	"strconv"
 	"time"
 )
@@ -77,26 +76,25 @@ func checkPeriodType(periodType string) error {
 	}
 }
 func getRepaymentPlan(request *Request) (response *Response, err error) {
-	response = &Response{}
 	switch request.RepayMethod {
 	// 01-等额本息
 	case EqualLoanRepayment:
-		err = equalLoanRepayment(request, response)
+		response, err = equalLoanRepayment(request)
 	// 02-等额本金
 	case EqualPrincipalRepayment:
-		err = equalPrincipalRepayment(request, response)
+		response, err = equalPrincipalRepayment(request)
 	// 03-到期（一次性）还本付息（息随本清)(到期一次性还本还息）
 	case BothPrincipalAndInterest:
-		err = bothPrincipalAndInterest(request, response)
+		response, err = bothPrincipalAndInterest(request)
 	// 04-到期还本周期还息(分期付息到期还本（先息后本))
 	case BeforeInterestAfterPrincipal:
-		err = beforeInterestAfterPrincipal(request, response)
+		response, err = beforeInterestAfterPrincipal(request)
 	// 05-等本等息（每期还本还息还款额都相等，每期计息的本金为贷款总本金）
 	case EqualPrincipalAndInterest:
-		err = equalPrincipalAndInterest(request, response)
+		response, err = equalPrincipalAndInterest(request)
 	// 06 账单。。。。
 	case BillDateRepayment:
-		err = billDateRepayment(request, response)
+		err = billDateRepayment(request)
 	default:
 		return nil, errors.New("repay method error")
 	}
@@ -104,18 +102,24 @@ func getRepaymentPlan(request *Request) (response *Response, err error) {
 }
 
 // 获取第一个还款日
-func getFirstRepayDate(request *Request, loanStartDateParseLocal time.Time) string {
+func getFirstRepayDate(request *Request, loanStartDateParseLocal time.Time) (time.Time, error) {
 	nextRepayDate := calculateFirstRepayDate(loanStartDateParseLocal, request.LoanCycleCode, request.RepayDay)
 
 	// 如果下一还款日比到期日还大，则下一还款日就是到期日
-	if request.LoanEndDate != "" && nextRepayDate > request.LoanEndDate {
-		return request.LoanEndDate
+	if request.LoanEndDate != "" {
+		loanEndDateParseLocal, e := time.ParseInLocation(DATE_DASH_FORMAT, request.LoanEndDate, time.Local)
+		if nil != e {
+			return time.Time{}, errors.New("interest Calculate End Date error")
+		}
+		if nextRepayDate.After(loanEndDateParseLocal) {
+			return loanEndDateParseLocal, nil
+		}
 	}
-	return nextRepayDate
+	return nextRepayDate, nil
 }
 
 // 计算第一个还款日
-func calculateFirstRepayDate(loanStartDateParseLocal time.Time, loanCycleCode string, repayDay int) string {
+func calculateFirstRepayDate(loanStartDateParseLocal time.Time, loanCycleCode string, repayDay int) time.Time {
 	switch loanCycleCode {
 	case loanCycleFortnightly:
 		return getFirstRepayDateOfLoanCycleFortnightly(repayDay, loanStartDateParseLocal)
@@ -123,10 +127,10 @@ func calculateFirstRepayDate(loanStartDateParseLocal time.Time, loanCycleCode st
 		return getFirstRepayDateOfLoanCycleMonthly(repayDay, loanStartDateParseLocal)
 	}
 
-	return ""
+	return time.Time{}
 }
-func getFirstRepayDateOfLoanCycleFortnightly(repayDay int, loanStartDateParseLocal time.Time) string {
-	dateTime := time.Time{}
+func getFirstRepayDateOfLoanCycleFortnightly(repayDay int, loanStartDateParseLocal time.Time) time.Time {
+	nextRepayDate := time.Time{}
 	// startDate add 14 days and get his weekDay num
 	// 获取 起息日+14天之后是周几
 	startDateUnixTime := time.Unix(loanStartDateParseLocal.Unix(), 0)
@@ -136,36 +140,33 @@ func getFirstRepayDateOfLoanCycleFortnightly(repayDay int, loanStartDateParseLoc
 	// the corresponding day two weeks after the week of the start date is taken as the first repayment date
 	// 首个还款日(起息日+14天)和 还款日不一样,则以起息日的下下周为首个还款日
 	if repayDay != weekDay {
-		dateTime = loanStartDateParseLocal.AddDate(0, 0, 14+repayDay-weekDay)
+		nextRepayDate = loanStartDateParseLocal.AddDate(0, 0, 14+repayDay-weekDay)
 	} else {
-		dateTime = loanStartDateParseLocal.AddDate(0, 0, 7)
+		nextRepayDate = loanStartDateParseLocal.AddDate(0, 0, 7)
 	}
-	nextRepayDate := dateTime.Format(DATE_DASH_FORMAT)
 	return nextRepayDate
 }
-func getFirstRepayDateOfLoanCycleMonthly(repayDay int, loanStartDateParseLocal time.Time) string {
-	dateTime := time.Time{}
+func getFirstRepayDateOfLoanCycleMonthly(repayDay int, loanStartDateParseLocal time.Time) time.Time {
+	nextRepayDate := time.Time{}
 	if repayDay > loanStartDateParseLocal.Day() {
 		// 如果还没过还款日:这个月的还款日
-		dateTime = loanStartDateParseLocal.AddDate(0, 0, repayDay-loanStartDateParseLocal.Day())
+		nextRepayDate = loanStartDateParseLocal.AddDate(0, 0, repayDay-loanStartDateParseLocal.Day())
 	} else {
 		// 如果过了还款日:下个月的还款日
-		dateTime = loanStartDateParseLocal.AddDate(0, 1, repayDay-loanStartDateParseLocal.Day())
+		nextRepayDate = loanStartDateParseLocal.AddDate(0, 1, repayDay-loanStartDateParseLocal.Day())
 	}
-	log.Printf("temp:%s", dateTime)
-	if dateTime.Day() != repayDay { // 日期加完和还款日不一致，月末问题,改为获取下一个月的月末
-		dateTime = getMonthLastDate(dateTime)
+	if nextRepayDate.Day() != repayDay { // 日期加完和还款日不一致，月末问题,改为获取下一个月的月末
+		nextRepayDate = getMonthLastDate(nextRepayDate)
 	}
 
-	if (dateTime.Sub(loanStartDateParseLocal)).Hours() < 20*24 {
+	if (nextRepayDate.Sub(loanStartDateParseLocal)).Hours() < 20*24 {
 		// 小于20天 再取下一个月
-		dateTime = dateTime.AddDate(0, 1, repayDay-loanStartDateParseLocal.Day())
+		nextRepayDate = nextRepayDate.AddDate(0, 1, repayDay-loanStartDateParseLocal.Day())
 
-		if dateTime.Day() != repayDay { // 日期加完和还款日不一致，月末问题,改为获取下一个月的月末
-			dateTime = getMonthLastDate(dateTime)
+		if nextRepayDate.Day() != repayDay { // 日期加完和还款日不一致，月末问题,改为获取下一个月的月末
+			nextRepayDate = getMonthLastDate(nextRepayDate)
 		}
 	}
-	nextRepayDate := dateTime.Format(DATE_DASH_FORMAT)
 	return nextRepayDate
 }
 func getMonthLastDate(dateTime time.Time) time.Time {
@@ -196,7 +197,7 @@ func getLoanEndDate(request *Request, loanStartDateParseLocal time.Time) error {
 		case loanCycleFortnightly:
 			loanEndDateParseLocal = calculateLoanEndDateWithLoanCycleFortnightly(loanStartDateParseLocal, request.PeriodNum)
 		case loanCycleMonthly:
-			loanEndDateParseLocal = calculateLoanEndDateWithLoanCycleMonthly(loanStartDateParseLocal, request.PeriodNum, request.RepayDay)
+			loanEndDateParseLocal = calculateDateAndMonth(loanStartDateParseLocal, request.PeriodNum, request.RepayDay)
 		}
 		request.LoanEndDate = loanEndDateParseLocal.Format(DATE_DASH_FORMAT)
 	}
@@ -207,7 +208,7 @@ func calculateLoanEndDateWithLoanCycleFortnightly(loanStartDateParseLocal time.T
 	loanEndDate := loanStartDateParseLocal.AddDate(0, 0, cycle)
 	return loanEndDate
 }
-func calculateLoanEndDateWithLoanCycleMonthly(loanStartDateParseLocal time.Time, periodNum, repayDay int) time.Time {
+func calculateDateAndMonth(loanStartDateParseLocal time.Time, periodNum, repayDay int) time.Time {
 	// the first day of fist loan period Date's month
 	firstDay := loanStartDateParseLocal.AddDate(0, 0, -loanStartDateParseLocal.Day()+1)
 
@@ -243,7 +244,7 @@ func calculateTotalPeriodNum(loanCycleCode string, loanStartDateParseLocal time.
 		}
 	case loanCycleMonthly:
 		for {
-			repayDate := calculateLoanEndDateWithLoanCycleMonthly(loanStartDateParseLocal, period, repayDay)
+			repayDate := calculateDateAndMonth(loanStartDateParseLocal, period, repayDay)
 			if repayDate.After(loanEndDateParseLocal) || repayDate.Equal(loanEndDateParseLocal) {
 				break
 			}
@@ -320,22 +321,20 @@ func calculatePeriodDate(request repayPlanRequest) map[int][]string {
 
 		if i == 0 { // 第一期
 			periodStartDate = request.LoanStartDate
-			periodRepayDate = request.FirstRepayDate
+			periodRepayDate = request.FirstRepayDate.Format(DATE_DASH_FORMAT)
 		} else {
 			if request.LoanCycleCode == loanCycleFortnightly {
 
 				// recalBgnTs := request.FirstRepayDate.AddDate(0, 0, (i-1)*14)
 				// periodStartDate = time.Unix(recalBgnTs.Unix(), 0).Format(DATE_DASH_FORMAT)
-				periodStartDate = dateMap[i-1][1]
+				periodStartDate = dateMap[i-1][2]
 				repaymentTs := request.FirstRepayDate.AddDate(0, 0, i*14)
 				periodRepayDate = time.Unix(repaymentTs.Unix(), 0).Format(DATE_DASH_FORMAT)
 			}
 			if request.LoanCycleCode == loanCycleMonthly {
-				periodStartDate, periodRepayDate, flag, specialStartDate, err =
-					calcPeriodStartDateAndEndDateByMonthly(i, request.FirstRepayDate, flag, specialStartDate, request.RepayDay)
-				if err != nil {
-					return err
-				}
+				periodRepayDateTemp := calculateDateAndMonth(request.FirstRepayDate, i, request.RepayDay)
+				periodRepayDate = periodRepayDateTemp.Format(DATE_DASH_FORMAT)
+				periodStartDate = dateMap[i-1][2]
 			}
 
 			if i == request.TotalPeriodNum-1 { // 最后一期
@@ -348,74 +347,4 @@ func calculatePeriodDate(request repayPlanRequest) map[int][]string {
 		dateMap[i] = []string{periodStartDate, periodEndDate, periodRepayDate}
 	}
 	return dateMap
-}
-func calcPeriodStartDateAndEndDateByMonthly(i int, nextRepayDateTm time.Time, flag bool, specialStartDate string,
-	RepayDay string) (reCalStartDate, repaymentDate string, fl bool, specialStartDateRes string, err *errors.Error) {
-
-	nextRepayDate := nextRepayDateTm.Format(constant.DATE_DASH_FORMAT)
-	if RepayDay == "29" || RepayDay == "30" {
-		firstTs := GetFirstDateOfMonthTime(nextRepayDateTm)
-		firstAddTs := firstTs.AddDate(0, i, 0)
-		firstAddDt := time.Unix(firstAddTs.Unix(), 0).Format(constant.DATE_DASH_FORMAT)
-		monthStr := firstAddDt[5 : len(firstAddDt)-3]
-		year := firstAddDt[0 : len(firstAddDt)-6]
-		log.Debugsf("year: %v", year)
-		if monthStr == "02" {
-			secondMonthDays := ""
-			if !IsLeapYear(year) {
-				secondMonthDays = "28"
-			} else {
-				secondMonthDays = "29"
-			}
-			finalDate := firstAddDt[0:len(firstAddDt)-2] + secondMonthDays
-			reCalBeginTime := nextRepayDateTm.AddDate(0, i-1, 0)
-			reCalStartDate = time.Unix(reCalBeginTime.Unix(), 0).Format(constant.DATE_DASH_FORMAT)
-			repaymentDate = finalDate
-			specialStartDate = finalDate
-			flag = true
-		} else {
-			if flag == true {
-				reCalStartDate = specialStartDate
-				flag = false
-			} else {
-				reCalBeginTime := nextRepayDateTm.AddDate(0, i-1, 0)
-				beginDate := time.Unix(reCalBeginTime.Unix(), 0).Format(constant.DATE_DASH_FORMAT)
-				reCalStartDate = beginDate[0:len(beginDate)-2] + RepayDay
-				if i == 1 && (nextRepayDate[8:len(nextRepayDate)] != RepayDay) {
-					reCalStartDate = nextRepayDate
-				}
-			}
-			reCalEndTs := nextRepayDateTm.AddDate(0, i, 0)
-			endDate := time.Unix(reCalEndTs.Unix(), 0).Format(constant.DATE_DASH_FORMAT)
-			repaymentDate = endDate[0:len(endDate)-2] + RepayDay
-
-		}
-	} else if RepayDay == "31" {
-		firstTs := GetFirstDateOfMonthTime(nextRepayDateTm)
-		firstAddTs := firstTs.AddDate(0, i, 0)
-		finalTs := GetLastDateOfMonth(firstAddTs)
-		finalDate := time.Unix(finalTs.Unix(), 0).Format(constant.DATE_DASH_FORMAT)
-		if i == 1 {
-			reCalStartDate = nextRepayDate
-		} else {
-			reCalStartDate = specialStartDate
-		}
-		repaymentDate = finalDate
-		specialStartDate = finalDate
-	} else {
-		if i == 1 {
-			reCalStartDate = nextRepayDate
-		} else {
-			reCalBeginTime := nextRepayDateTm.AddDate(0, i-1, 0)
-			beginDate := time.Unix(reCalBeginTime.Unix(), 0).Format(constant.DATE_DASH_FORMAT)
-			reCalStartDate = beginDate[0:len(beginDate)-2] + RepayDay
-		}
-
-		reCalEndTs := nextRepayDateTm.AddDate(0, i, 0)
-		endDate := time.Unix(reCalEndTs.Unix(), 0).Format(constant.DATE_DASH_FORMAT)
-		repaymentDate = endDate[0:len(endDate)-2] + RepayDay
-
-	}
-
-	return reCalStartDate, repaymentDate, flag, specialStartDate, nil
 }
