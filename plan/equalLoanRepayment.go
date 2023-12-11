@@ -13,14 +13,16 @@ import (
   *@Author pauline
   *@Date 2023/12/5 10:09
 **/
-func equalLoanRepayment(request *Request, response *Response) (err error) {
+func equalLoanRepayment(request *Request) (*Response, error) {
 	loanStartDateParseLocal, err := time.ParseInLocation(DATE_DASH_FORMAT, request.LoanStartDate, time.Local)
 	if err != nil {
-		return errors.New("loanStartDate date format error: " + err.Error())
+		return nil, errors.New("loanStartDate date format error: " + err.Error())
 	}
 
-	firstRepayDate := getFirstRepayDate(request, loanStartDateParseLocal)
-
+	firstRepayDate, err := getFirstRepayDate(request, loanStartDateParseLocal)
+	if err != nil {
+		return nil, err
+	}
 	totalPeriodNum, err := getTotalPeriodNum(request, loanStartDateParseLocal)
 
 	if request.LoanEndDate == "" {
@@ -29,12 +31,12 @@ func equalLoanRepayment(request *Request, response *Response) (err error) {
 
 	loanEndDateParseLocal, err := time.ParseInLocation(DATE_DASH_FORMAT, request.LoanEndDate, time.Local)
 	if err != nil {
-		return errors.New("loanStartDate date format error: " + err.Error())
+		return nil, errors.New("loanStartDate date format error: " + err.Error())
 	}
 
 	periodInterestRate := calculatePeriodInterestRate(request.InterestRate, request.LoanCycleCode)
 	daysInterestRate := calculateDaysInterestRate(request.InterestRate, request.DaysOfYear)
-	response = &Response{
+	response := &Response{
 		RepayMethod:    request.RepayMethod,
 		LoanStartDate:  request.LoanStartDate,
 		LoanEndDate:    request.LoanEndDate,
@@ -53,9 +55,10 @@ func equalLoanRepayment(request *Request, response *Response) (err error) {
 		FirstRepayDate:          firstRepayDate,
 		LoanStartDateParseLocal: loanStartDateParseLocal,
 		LoanEndDateParseLocal:   loanEndDateParseLocal,
+		RepayDay:                request.RepayDay,
 	}, daysInterestRate)
 
-	return nil
+	return response, nil
 }
 
 func equalLoanPlan(response *Response, request repayPlanRequest, daysInterestRate decimal.Decimal) error {
