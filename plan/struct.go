@@ -87,7 +87,8 @@ type repayPlanRequest struct {
 	LoanCycleCode           string          // 还款周期频率 01-daily 日 02-fortnightly 两周 03-monthly 月 04-quarterly 季 05-yearly 年
 	PeriodInterestRate      decimal.Decimal // 期利率
 	TotalPeriodNum          int             // 总期数
-	FirstRepayDate          string          // 首个还款日
+	FirstRepayDate          time.Time       // 首个还款日
 	LoanStartDateParseLocal time.Time
 	LoanEndDateParseLocal   time.Time
+	RepayDay                int
 }
