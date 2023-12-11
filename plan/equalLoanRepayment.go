@@ -25,9 +25,7 @@ func equalLoanRepayment(request *Request) (*Response, error) {
 	}
 	totalPeriodNum, err := getTotalPeriodNum(request, loanStartDateParseLocal)
 
-	if request.LoanEndDate == "" {
-		err = getLoanEndDate(request, loanStartDateParseLocal)
-	}
+	err = getLoanEndDate(request, firstRepayDate)
 
 	loanEndDateParseLocal, err := time.ParseInLocation(DATE_DASH_FORMAT, request.LoanEndDate, time.Local)
 	if err != nil {
@@ -35,7 +33,9 @@ func equalLoanRepayment(request *Request) (*Response, error) {
 	}
 
 	periodInterestRate := calculatePeriodInterestRate(request.InterestRate, request.LoanCycleCode)
+
 	daysInterestRate := calculateDaysInterestRate(request.InterestRate, request.DaysOfYear)
+
 	response := &Response{
 		RepayMethod:    request.RepayMethod,
 		LoanStartDate:  request.LoanStartDate,
@@ -44,7 +44,6 @@ func equalLoanRepayment(request *Request) (*Response, error) {
 		LoanAmount:     request.LoanAmount,
 		InterestRate:   request.InterestRate,
 	}
-
 	err = equalLoanPlan(response, repayPlanRequest{
 		LoanAmount:              request.LoanAmount,
 		LoanStartDate:           request.LoanStartDate,
@@ -86,18 +85,18 @@ func equalLoanPlan(response *Response, request repayPlanRequest, daysInterestRat
 		}
 
 		// 当前期次的计息天数
-		daysOfPeriod := getDaysBetweenDate(request.LoanStartDateParseLocal, request.LoanEndDateParseLocal)
+		daysOfPeriod := getDaysBetweenDate(periodStartDate, periodEndDate)
 
 		// 当前期次的利息=当前剩余本金*计息天数*日利息
 		periodRepayInterest := remainPrinciple.Mul(daysInterestRate).Mul(decimal.NewFromInt(daysOfPeriod)).RoundBank(2)
 
 		record := RepayPlanRecord{
-			PeriodNum:           i + 1,               // 当前期次的期数
-			PeriodStartDate:     periodStartDate,     // 当前期次的开始计息日
-			PeriodEndDate:       periodEndDate,       // 当前期次的结束计息日
-			RepayDate:           periodRepayDate,     // 当前期次的还款日
-			DaysOfPeriod:        int(daysOfPeriod),   // 当前期次的计息天数
-			PeriodRepayInterest: periodRepayInterest, // 当前期次的利息
+			PeriodNum:           i + 1,                                    // 当前期次的期数
+			PeriodStartDate:     periodStartDate.Format(DATE_DASH_FORMAT), // 当前期次的开始计息日
+			PeriodEndDate:       periodEndDate.Format(DATE_DASH_FORMAT),   // 当前期次的结束计息日
+			RepayDate:           periodRepayDate.Format(DATE_DASH_FORMAT), // 当前期次的还款日
+			DaysOfPeriod:        int(daysOfPeriod),                        // 当前期次的计息天数
+			PeriodRepayInterest: periodRepayInterest,                      // 当前期次的利息
 		}
 
 		// if this is the last period 如果是最后一期
@@ -117,7 +116,7 @@ func equalLoanPlan(response *Response, request repayPlanRequest, daysInterestRat
 		record.MaintainPrinciple = request.LoanAmount.Sub(hasRepayPrincipal) // 剩余还款本金
 
 		// 累积还款总金额
-		sumTotalRepayAmount = sumTotalRepayAmount.Add(record.PeriodRepayPrinciple)
+		sumTotalRepayAmount = sumTotalRepayAmount.Add(record.PeriodRepayTotalAmount)
 		// 累积还款总利息
 		sumTotalInterest = sumTotalInterest.Add(record.PeriodRepayInterest)
 
