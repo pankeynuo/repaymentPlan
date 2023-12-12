@@ -95,12 +95,21 @@ func getRepaymentPlan(request *Request) (response *Response, err error) {
 		response, err = bothPrincipalAndInterest(request, loanStartDate, loanEndDate)
 	// 04-先息后本
 	case BeforeInterestAfterPrincipal:
+		if err = check(request); nil != err {
+			return nil, err
+		}
 		response, err = beforeInterestAfterPrincipal(request)
 	// 05-等本等息
 	case EqualPrincipalAndInterest:
+		if err = check(request); nil != err {
+			return nil, err
+		}
 		response, err = equalPrincipalAndInterest(request)
 	// 06 账单。。。。
 	case BillDateRepayment:
+		if err = check3(request);nil!=err {
+			return nil,err
+		}
 		response, err = billDateRepayment(request)
 	default:
 		return nil, errors.New("repay method error")
@@ -132,4 +141,33 @@ func check2(request *Request) (time.Time, time.Time, error) {
 		return time.Time{}, time.Time{}, errors.New("interest Rate error")
 	}
 	return loanStartDate, loanEndDate, nil
+}
+func check3(request *Request) error {
+	if request.LoanStartDate == "" {
+		return errors.New("interest Calculate Start Date can not be empty")
+	}
+	if request.LoanEndDate == "" {
+		return errors.New("interest Calculate End Date can not be empty")
+	}
+	loanStartDate, e := time.ParseInLocation(DATE_DASH_FORMAT, request.LoanStartDate, time.Local)
+	if nil != e {
+		return errors.New("interest Calculate Start Date error")
+	}
+	loanEndDate, e := time.ParseInLocation(DATE_DASH_FORMAT, request.LoanEndDate, time.Local)
+	if nil != e {
+		return errors.New("interest Calculate End Date error")
+	}
+	if loanEndDate.Sub(loanStartDate) <= 0 {
+		return errors.New("loan Start Date can not after or equal than loan end date")
+	}
+	if request.LoanCycleCode != loanCycleMonthly {
+
+	}
+	if request.RepayDay <= 0 || request.RepayDay >= 32 {
+		return errors.New("repay Day error")
+	}
+	if request.BillDay <= 0 || request.BillDay >= 32 {
+		return errors.New("repay Day error")
+	}
+	return nil
 }
