@@ -1,96 +1,64 @@
 package main
 
+import (
+	"errors"
+	"git.multiverse.io/framework/log"
+	"git.siriustech.internal/banking/backend/icredit/common/models"
+	"time"
+)
+
 /**
   *@Description TODO
   *@Author pauline
   *@Date 2023/12/5 10:19
 **/
 func billDateRepayment(request *Request) (response *Response, err error) {
-	/*if request.InterestCalculateEndDate <= request.InterestCalculateStartDate {
-		return nil, errors.New(constant.SYSPANIC, "The Drawdown Date cannot be less than or equal to the Maturity Date")
+
+	loanStartDateParseLocal, err := time.ParseInLocation(DATE_DASH_FORMAT, request.LoanStartDate, time.Local)
+	if err != nil {
+		return nil, errors.New("loanStartDate date format error: " + err.Error())
 	}
 
-	if plan.RepayMethod != "06" {
-		return nil, errors.New(constant.SYSPANIC, "RepayMethod not right")
-	}
-	if plan.LoanCycleCode != "04" {
-		return nil, errors.New(constant.SYSPANIC, "RepaymentFrequency not right")
-	}
-	//if plan.RepayDay == plan.BillDay {
-	//	panic("RepayDay can not as same as BillDay ")
-	//}
-	if plan.RepayDay == "" || plan.RepayDay == "0" || plan.RepayDay == "00" {
-		return nil, errors.New(constant.SYSPANIC, "RepayDay is null")
-	}
-	if plan.BillDay == "" || plan.BillDay == "0" || plan.BillDay == "00" {
-		return nil, errors.New(constant.SYSPANIC, "BillDay is null")
-	}
-
-	startDateTs, e := time.Parse(constant.DATE_DASH_FORMAT, plan.InterestCalculateStartDate)
-	if e != nil {
-		return nil, errors.New(constant.SYSPANIC, e)
-	}
-
-	startDay := startDateTs.Day()
-	log.Debugsf("start day = %d", startDay)
-
-	billDay, e := stringToInt(plan.BillDay)
-	if e != nil {
-		return nil, errors.New(constant.SYSPANIC, e)
-	}
-	log.Debugsf("bill day = %d", billDay)
-	repayDay, e := stringToInt(plan.RepayDay)
-	if e != nil {
-		return nil, errors.New(constant.SYSPANIC, e)
-	}
-	log.Debugsf("repay day = %d", repayDay)
-
-	log.Debugs("calculate first bill date")
-
-	nextBillDate, err := calcNextDateWithMonth(plan, plan.BillDay, 1)
+	nextBillDate, err := calcNextDateWithMonth(request)
 	if err != nil {
 		return nil, err
 	}
-	nextBillDateTs, e := time.Parse(constant.DATE_DASH_FORMAT, nextBillDate)
+	nextBillDateTs, e := time.Parse(DATE_DASH_FORMAT, nextBillDate)
 	if e != nil {
-		return nil, errors.New(constant.SYSPANIC, e)
+		return nil, errors.New()
 	}
-	log.Debugsf("- nextBillDate = %s", nextBillDate)
-	log.Debugsf("- nextBillDateTs = %s", nextBillDateTs)
-	nextRepayDate, err := calcFirstRepayDateForBill(plan, billDay, repayDay)
+	nextRepayDate, err := calcFirstRepayDateForBill(request)
 	if err != nil {
 		return nil, err
 	}
-	nextRepayDateTs, e := time.Parse(constant.DATE_DASH_FORMAT, nextRepayDate)
+	nextRepayDateTs, e := time.Parse(DATE_DASH_FORMAT, nextRepayDate)
 	if e != nil {
-		return nil, errors.New(constant.SYSPANIC, e)
+		return nil, errors.New()
 	}
-	log.Debugsf("- nextRepayDate = %s", nextRepayDate)
-	log.Debugsf("- nextRepayDateTs = %s", nextRepayDateTs)
 
-	totalPeriod, planRecords := calcBillRepayPlan(plan, nextBillDateTs, nextRepayDateTs, billDay, repayDay)
+	totalPeriodNum, planRecords := calcBillRepayPlan(request, nextBillDateTs, nextRepayDateTs, billDay, repayDay)
 
-	planResponse := &models.RepayPlanResponse{
-		RepayMethod:                plan.RepayMethod,
-		InterestCalculateStartDate: plan.InterestCalculateStartDate,
-		InterestCalculateEndDate:   plan.InterestCalculateEndDate,
-		PeriodNum:                  totalPeriod,
-		LoanAmount:                 plan.LoanAmount,
-		InterestRate:               plan.InterestRate,
-		FirstBillDate:              nextBillDate,
-		FirstRepayDate:             nextRepayDate,
-		Records:                    planRecords,
-	}*/
-	// calculate TODO
-	return nil, nil
+	response := &Response{
+		RepayMethod:    request.RepayMethod,
+		LoanStartDate:  request.LoanStartDate,
+		LoanEndDate:    request.LoanEndDate,
+		TotalPeriodNum: totalPeriodNum,
+		LoanAmount:     request.LoanAmount,   // 好像没有
+		InterestRate:   request.InterestRate, // 好像没有
+		FirstBillDate:  nextBillDate,
+		FirstRepayDate: nextRepayDate,
+		Records:        planRecords,
+	}
+	return response, nil
 }
 
 // calc first repayment date when repayment method = 06
 // 2）BD<RD，则BDn和RDn在同一个月内；
 // 3）BD>RD，则RDn在BDn所在月的次月；
 // 4）BD=RD，则页面提供选项，RDn是否与BDn在同一个月（选择否，则BDn在RDn所在月的次月）
-/*func calcFirstRepayDateForBill(plan *models.RepayPlanRequest, billDay, repayDay int) (nextRepayDate string, err *errors.Error) {
-	log.Debugs("calculate repay date")
+func calcFirstRepayDateForBill(plan *Request) (nextRepayDate string, err errors) {
+	billDay := plan.BillDay
+	repayDay := plan.RepayDay
 	if billDay < repayDay {
 		nextRepayDate, err = calcNextDateWithMonth(plan, plan.RepayDay, 1)
 	} else if billDay == repayDay {
@@ -109,10 +77,10 @@ func billDateRepayment(request *Request) (response *Response, err error) {
 }
 
 // calc the repayment date , plan bill date for billing repayment plan
-func calcBillRepayPlan(plan *models.RepayPlanRequest, nextBillDateTs, nextRepayDateTs time.Time,
+func calcBillRepayPlan(plan *Request, nextBillDateTs, nextRepayDateTs time.Time,
 	billDay, repayDay int) (totalPeriod int, records []models.RepayPlanRecord) {
 
-	endDateTs, e := time.Parse(constant.DATE_DASH_FORMAT, plan.InterestCalculateEndDate)
+	endDateTs, e := time.Parse(DATE_DASH_FORMAT, plan.InterestCalculateEndDate)
 	if e != nil {
 		panic(e)
 	}
@@ -209,9 +177,10 @@ func calcNextBillDateOrRepaymentDate(nextDateTs time.Time, requestDay int) (newN
 	return newNextDateTs
 }
 
-func calcNextDateWithMonth(request *models.RepayPlanRequest, requestDay string, month int) (nextDate string, err *errors.Error) {
-
-	interestCalculateStartDate, e := time.Parse(constant.DATE_DASH_FORMAT, request.InterestCalculateStartDate)
+func calcNextDateWithMonth(request *Request) (nextDate string, err error) {
+	requestDay := request.BillDay
+	month := 1
+	interestCalculateStartDate, e := time.Parse(DATE_DASH_FORMAT, request.InterestCalculateStartDate)
 	if e != nil {
 		return "", errors.New(constant.SYSPANIC, e)
 	}
@@ -310,4 +279,3 @@ func calcNextDateWithMonth(request *models.RepayPlanRequest, requestDay string, 
 	log.Debugsf("-- nextDate end: %v", nextDate)
 	return nextDate, nil
 }
-*/
