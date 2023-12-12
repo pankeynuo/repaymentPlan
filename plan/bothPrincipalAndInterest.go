@@ -10,7 +10,10 @@ import (
   *@Author pauline
   *@Date 2023/12/5 10:18
 **/
-func bothPrincipalAndInterest(request *Request, loanStartDateParseLocal, loanEndDateParseLocal time.Time) (response *Response, err error) {
+func bothPrincipalAndInterest(request *Request) (response *Response, err error) {
+	loanStartDateParseLocal, _ := time.ParseInLocation(DATE_DASH_FORMAT, request.LoanStartDate, time.Local)
+	loanEndDateParseLocal, _ := time.ParseInLocation(DATE_DASH_FORMAT, request.LoanEndDate, time.Local)
+
 	// 1.Daily interest rate 日利率
 	daysInterestRate := calculateDaysInterestRate(request.InterestRate, request.DaysOfYear)
 
