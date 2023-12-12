@@ -88,7 +88,7 @@ func fixedInstallmentMethodPlan(response *Response, request repayPlanRequest, da
 			PeriodNum:           i + 1,                                    // 当前期次的期数
 			PeriodStartDate:     periodStartDate.Format(DATE_DASH_FORMAT), // 当前期次的开始计息日
 			PeriodEndDate:       periodEndDate.Format(DATE_DASH_FORMAT),   // 当前期次的结束计息日
-			RepayDate:           periodRepayDate.Format(DATE_DASH_FORMAT), // 当前期次的还款日
+			PeriodRepayDate:     periodRepayDate.Format(DATE_DASH_FORMAT), // 当前期次的还款日
 			DaysOfPeriod:        int(daysOfPeriod),                        // 当前期次的计息天数
 			PeriodRepayInterest: periodRepayInterest,                      // 当前期次的利息
 		}
