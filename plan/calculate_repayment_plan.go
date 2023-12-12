@@ -7,14 +7,12 @@ import (
 )
 
 func CalculateRepaymentPlan(request *Request) (response *Response, err error) {
-	if e := check(request); nil != e {
-		return nil, e
-	}
 	return getRepaymentPlan(request)
 }
 
 // request 参数检查
 func check(request *Request) error {
+
 	if request.DaysOfYear == 0 {
 		request.DaysOfYear = daysOfYear
 	}
@@ -78,17 +76,27 @@ func getRepaymentPlan(request *Request) (response *Response, err error) {
 	switch request.RepayMethod {
 	// 01-等额本息
 	case EqualLoanRepayment:
-		response, err = equalLoanRepayment(request)
+		if err = check(request); nil != err {
+			return nil, err
+		}
+		response, err = fixedInstallmentMethod(request)
 	// 02-等额本金
 	case EqualPrincipalRepayment:
-		response, err = equalPrincipalRepayment(request)
-	// 03-到期（一次性）还本付息（息随本清)(到期一次性还本还息）
+		if err = check(request); nil != err {
+			return nil, err
+		}
+		response, err = fixedPrincipalMethod(request)
+	// 03-利随本清
 	case BothPrincipalAndInterest:
-		response, err = bothPrincipalAndInterest(request)
-	// 04-到期还本周期还息(分期付息到期还本（先息后本))
+		loanStartDate, loanEndDate, err := check2(request)
+		if nil != err {
+			return nil, err
+		}
+		response, err = bothPrincipalAndInterest(request, loanStartDate, loanEndDate)
+	// 04-先息后本
 	case BeforeInterestAfterPrincipal:
 		response, err = beforeInterestAfterPrincipal(request)
-	// 05-等本等息（每期还本还息还款额都相等，每期计息的本金为贷款总本金）
+	// 05-等本等息
 	case EqualPrincipalAndInterest:
 		response, err = equalPrincipalAndInterest(request)
 	// 06 账单。。。。
@@ -98,4 +106,30 @@ func getRepaymentPlan(request *Request) (response *Response, err error) {
 		return nil, errors.New("repay method error")
 	}
 	return response, err
+}
+func check2(request *Request) (time.Time, time.Time, error) {
+	if request.LoanStartDate == "" {
+		return time.Time{}, time.Time{}, errors.New("interest Calculate Start Date can not be empty")
+	}
+	if request.LoanEndDate == "" {
+		return time.Time{}, time.Time{}, errors.New("interest Calculate End Date can not be empty")
+	}
+	loanStartDate, e := time.ParseInLocation(DATE_DASH_FORMAT, request.LoanStartDate, time.Local)
+	if nil != e {
+		return time.Time{}, time.Time{}, errors.New("interest Calculate Start Date error")
+	}
+	loanEndDate, e := time.ParseInLocation(DATE_DASH_FORMAT, request.LoanEndDate, time.Local)
+	if nil != e {
+		return time.Time{}, time.Time{}, errors.New("interest Calculate End Date error")
+	}
+	if loanEndDate.Sub(loanStartDate) <= 0 {
+		return time.Time{}, time.Time{}, errors.New("loan Start Date can not after or equal than loan end date")
+	}
+	if request.DaysOfYear == 0 {
+		request.DaysOfYear = daysOfYear
+	}
+	if request.InterestRate.LessThanOrEqual(decimal.Zero) {
+		return time.Time{}, time.Time{}, errors.New("interest Rate error")
+	}
+	return loanStartDate, loanEndDate, nil
 }
