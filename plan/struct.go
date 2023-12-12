@@ -17,9 +17,8 @@ type Request struct {
 	RepayDay      int             `json:"repayDay"`                          // 每一期还款日
 	DaysOfYear    int             `json:"daysOfYear"`                        // 年天数 默认360
 	DaysOfMonth   int             `json:"daysOfMonth"`                       // 月天数 默认30
-
+	BillDay       int             `json:"billDay"`                           // 账单日
 	// NextRepayDate string        `json:"nextRepayDate"` // 下个还款日
-	// BillDay       string        `json:"billDay"`       // 账单日
 	// EditFlag      string        `json:"editFlag" description:"edit repayment flag Y-Yes "`
 	// IsSameFlag    bool          `json:"isSameFlag"`
 	// SkipReduce    SkipAndReduce `json:"skipReduce"`
@@ -34,7 +33,7 @@ type SkipAndReduce struct {
 	SkipPeriodCount        int             `json:"skipPeriodCount"`
 }
 type Response struct {
-	RepayMethod      string            `json:"repayMethod"`            // 还款方式:01-等额本息  02-等额本金  03-到期（一次性）还本付息（息随本清)(到期一次性还本还息）  04-到期还本周期还息(分期付息到期还本（先息后本)) 05-等本等息（每期还本还息还款额都相等，每期计息的本金为贷款总本金）
+	RepayMethod      string            `json:"repayMethod"`            // 还款方式:01-等额本息  02-等额本金  03-利随本清 04-先息后本 05-等本等息
 	LoanStartDate    string            `json:"loanStartDate"`          // 利息计算开始日期=开始贷款日期
 	LoanEndDate      string            `json:"loanEndDate"`            // 利息计算结束日期=最后一次还款日
 	TotalPeriodNum   int               `json:"totalPeriodNum"`         // 期数
@@ -50,7 +49,7 @@ type RepayPlanRecord struct {
 	PeriodStartDate        string          `json:"periodStartDate"`        // 本期开始日期
 	PeriodEndDate          string          `json:"periodEndDate"`          // 本期结束日期
 	DaysOfPeriod           int             `json:"daysOfPeriod"`           // 本期天数
-	RepayDate              string          `json:"repayDate"`              // 本期还款日期
+	PeriodRepayDate        string          `json:"periodRepayDate"`        // 本期还款日期
 	PeriodRepayTotalAmount decimal.Decimal `json:"periodRepayTotalAmount"` // 本期还款总金额
 	PeriodRepayPrinciple   decimal.Decimal `json:"periodRepayPrinciple"`   // 本期还款本金
 	PeriodRepayInterest    decimal.Decimal `json:"periodRepayInterest"`    // 本期还款利息
