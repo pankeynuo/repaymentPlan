@@ -28,7 +28,7 @@ func bothPrincipalAndInterest(request *Request, loanStartDateParseLocal, loanEnd
 		PeriodNum:              1,
 		PeriodStartDate:        request.LoanStartDate,
 		PeriodEndDate:          reCalEndDate.Format(DATE_DASH_FORMAT),
-		RepayDate:              request.LoanEndDate,
+		PeriodRepayDate:        request.LoanEndDate,
 		PeriodRepayPrinciple:   request.LoanAmount,
 		MaintainPrinciple:      decimal.NewFromFloat(0),
 		DaysOfPeriod:           int(daysOfPeriod),
