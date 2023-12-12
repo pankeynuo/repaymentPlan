@@ -1,58 +1,50 @@
 package main
 
+import (
+	"github.com/shopspring/decimal"
+	"time"
+)
+
 /**
   *@Description TODO
   *@Author pauline
   *@Date 2023/12/5 10:18
 **/
-func bothPrincipalAndInterest(request *Request) (response *Response, err error) {
-	/*if request.InterestCalculateEndDate == "" {
-		return nil, errors.New(constant.SYSPANIC, "MatureDate can not be null")
-	}
-	if request.InterestCalculateEndDate <= request.InterestCalculateStartDate {
-		return nil, errors.New(constant.SYSPANIC, "The Drawdown Date cannot be less than or equal to the Maturity Date")
-	}
-	reCalEndDateTs, _ := time.Parse(constant.DATE_DASH_FORMAT, request.InterestCalculateEndDate)
-	reCalEndDate := reCalEndDateTs.AddDate(0, 0, -1).Format(constant.DATE_DASH_FORMAT)
-
+func bothPrincipalAndInterest(request *Request, loanStartDateParseLocal, loanEndDateParseLocal time.Time) (response *Response, err error) {
 	// 1.Daily interest rate 日利率
-	rateD := request.InterestRate.Div(decimal.NewFromInt(int64(request.DaysOfYear))).Div(decimal.NewFromFloat(100)) //日利率
-	log.Debugsf("rateD: %+v", rateD)
+	daysInterestRate := calculateDaysInterestRate(request.InterestRate, request.DaysOfYear)
+
+	reCalEndDate := loanEndDateParseLocal.AddDate(0, 0, -1)
+
 	// 2.get this period's interest begin 计息天数
-	days, e := GetTimeInterval(request.InterestCalculateStartDate, reCalEndDate)
-	if e != nil {
-		return nil, errors.New(constant.SYSPANIC, e)
-	}
-	daysOfInterestCal, e := conversionInt(days)
-	if e != nil {
-		return nil, errors.New(constant.SYSPANIC, e)
-	}
+	daysOfPeriod := getDaysBetweenDate(loanStartDateParseLocal, reCalEndDate)
+
 	// 3.calculate total interest amount
-	planRepayInterest := request.LoanAmount.Mul(rateD).Mul(decimal.NewFromInt(days)).Round(2)
-	log.Debugsf("planRepayInterest = %s", planRepayInterest)
+	totalInterest := request.LoanAmount.Mul(daysInterestRate).Mul(decimal.NewFromInt(daysOfPeriod)).Round(2)
+
 	// 4.response only one period's plan
-	totalAmount := planRepayInterest.Add(request.LoanAmount)
-	record := models.RepayPlanRecord{
-		PeriodNum:                  1,
-		InterestCalculateStartDate: request.InterestCalculateStartDate,
-		InterestCalculateEndDate:   reCalEndDate,
-		PlanRepayDate:              request.InterestCalculateEndDate,
-		PlanRepayPrinciple:         request.LoanAmount,
-		MaintainPrinciple:          decimal.NewFromFloat(0),
-		DaysOfInterestCalculate:    daysOfInterestCal,
-		PlanRepayInterest:          planRepayInterest,
-		PlanRepayTotalAmount:       totalAmount,
+	totalAmount := totalInterest.Add(request.LoanAmount)
+	record := RepayPlanRecord{
+		PeriodNum:              1,
+		PeriodStartDate:        request.LoanStartDate,
+		PeriodEndDate:          reCalEndDate.Format(DATE_DASH_FORMAT),
+		RepayDate:              request.LoanEndDate,
+		PeriodRepayPrinciple:   request.LoanAmount,
+		MaintainPrinciple:      decimal.NewFromFloat(0),
+		DaysOfPeriod:           int(daysOfPeriod),
+		PeriodRepayInterest:    totalInterest,
+		PeriodRepayTotalAmount: totalAmount,
 	}
-	response = &models.RepayPlanResponse{
-		PeriodNum:                  1,
-		RepayMethod:                request.RepayMethod,
-		InterestCalculateStartDate: request.InterestCalculateStartDate,
-		InterestCalculateEndDate:   request.InterestCalculateEndDate,
-		LoanAmount:                 request.LoanAmount,
-		InterestRate:               request.InterestRate,
-		PlanRepayTotalAmount:       totalAmount,
-		PlanRepayTotalInterest:     planRepayInterest,
-		Records:                    []models.RepayPlanRecord{record},
-	}*/
-	return nil, nil
+	response = &Response{
+		TotalPeriodNum:   1,
+		RepayMethod:      request.RepayMethod,
+		LoanStartDate:    request.LoanStartDate,
+		LoanEndDate:      request.LoanEndDate,
+		LoanAmount:       request.LoanAmount,
+		InterestRate:     request.InterestRate,
+		TotalRepayAmount: totalAmount,
+		TotalInterest:    totalInterest,
+		PlanRepayRecords: []RepayPlanRecord{record},
+	}
+	return response, nil
 }
