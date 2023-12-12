@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"github.com/shopspring/decimal"
-	"strconv"
 	"time"
 )
 
@@ -69,11 +68,6 @@ func getFirstRepayDateOfLoanCycleMonthly(repayDay int, loanStartDateParseLocal t
 
 	}
 	return nextRepayDate
-}
-func getLastMonthLastDate(dateTime time.Time) time.Time {
-	firstOfMonth := dateTime.AddDate(0, 0, -dateTime.Day()+1)
-	lastOfLastMonth := firstOfMonth.AddDate(0, 0, -1)
-	return lastOfLastMonth
 }
 
 func getTotalPeriodNum(request *Request, loanStartDateParseLocal time.Time) (totalPeriodNum int, err error) {
@@ -142,11 +136,11 @@ func calculateLoanEndDateWithLoanCycleFortnightly(firstRepayDate time.Time, peri
 }
 
 // 日期加n个月后的指定天
-func calculateDateAddMonth(date time.Time, periodNum, day int) time.Time {
+func calculateDateAddMonth(date time.Time, monthsNum, day int) time.Time {
 	// the first day of fist loan period Date's month
 	firstDay := date.AddDate(0, 0, -date.Day()+1)
 
-	firstDayAddMonth := firstDay.AddDate(0, periodNum, 0)
+	firstDayAddMonth := firstDay.AddDate(0, monthsNum, 0)
 	firstDayAddMonthAddDay := firstDayAddMonth.AddDate(0, 0, day-1)
 	if firstDayAddMonthAddDay.Day() != day {
 		firstDayAndMonthAddDay := firstDayAddMonth.AddDate(0, 1, -firstDayAddMonth.Day())
@@ -167,13 +161,7 @@ func calculatePeriodInterestRate(interestRate decimal.Decimal, loanCycleCode str
 func calculateDaysInterestRate(interestRate decimal.Decimal, daysOfYear int) decimal.Decimal {
 	return interestRate.Div(decimal.NewFromInt(int64(daysOfYear))).Div(decimal.NewFromFloat(100))
 }
-func stringToInt(num string) (int, error) {
-	intNum, err := strconv.Atoi(num)
-	if err != nil {
-		return 0, err
-	}
-	return intNum, nil
-}
+
 func weekDayToDay(weekday time.Weekday) int {
 	switch weekday {
 	case time.Monday:
@@ -195,16 +183,6 @@ func weekDayToDay(weekday time.Weekday) int {
 	}
 }
 
-// 获取日期月份第一天、最后一天
-func getFirstLastDateOfMonth(t string) (string, string) {
-	d, err := time.ParseInLocation(DATE_DASH_FORMAT, t, time.Local)
-	if err != nil {
-		d = time.Now()
-	}
-	firstDate := d.AddDate(0, 0, -d.Day()+1)
-	lastDate := d.AddDate(0, 1, -d.Day())
-	return firstDate.Format(DATE_DASH_FORMAT), lastDate.Format(DATE_DASH_FORMAT)
-}
 func getDaysBetweenDate(startDate, endDate time.Time) int64 {
 	startTime := startDate.Unix()
 	endTime := endDate.Unix()
