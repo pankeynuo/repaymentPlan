@@ -6,17 +6,17 @@ import (
 )
 
 type Request struct {
-	LoanAmount    decimal.Decimal `json:"loanAmount" validate:"required"`     // 贷款金额
-	LoanStartDate string          `json:"loanStartDate" validate:"required"`  // 利息计算开始日期=开始贷款日期
-	LoanEndDate   string          `json:"loanEndDate"`                        // 利息计算结束日期=最后一次还款日
-	LoanCycleCode string          `json:"loanCycleCode"  validate:"required"` // 还款周期频率 01-daily 日 02-fortnightly 两周 03-monthly 月 04-quarterly 季 05-yearly 年
-	InterestRate  decimal.Decimal `json:"interestRate" validate:"required"`   // 年利率
-	RepayMethod   string          `json:"repayMethod" validate:"required"`    // 还款方式:01-等额本息  02-等额本金  03-到期（一次性）还本付息（息随本清)(到期一次性还本还息）  04-到期还本周期还息(分期付息到期还本（先息后本)) 05-等本等息（每期还本还息还款额都相等，每期计息的本金为贷款总本金）
-	PeriodNum     int             `json:"periodNum"`                          // 期数
-	PeriodType    string          `json:"periodType"`                         // 期数类型 01-年 02-月
-	RepayDay      int             `json:"repayDay" validate:"required"`       // 每一期还款日
-	DaysOfYear    int             `json:"daysOfYear"`                         // 年天数 默认360
-	DaysOfMonth   int             `json:"daysOfMonth"`                        // 月天数 默认30
+	LoanAmount    decimal.Decimal `json:"loanAmount" validate:"required"`    // 贷款金额
+	LoanStartDate string          `json:"loanStartDate" validate:"required"` // 利息计算开始日期=开始贷款日期
+	LoanEndDate   string          `json:"loanEndDate"`                       // 利息计算结束日期=最后一次还款日
+	LoanCycleCode string          `json:"loanCycleCode"`                     // 还款周期频率 01-daily 日 02-fortnightly 两周 03-monthly 月 04-quarterly 季 05-yearly 年
+	InterestRate  decimal.Decimal `json:"interestRate" validate:"required"`  // 年利率
+	RepayMethod   string          `json:"repayMethod" validate:"required"`   // 还款方式:01-等额本息  02-等额本金  03-利随本清 04-先息后本 05-等本等息
+	PeriodNum     int             `json:"periodNum"`                         // 期数
+	PeriodType    string          `json:"periodType"`                        // 期数类型 01-年 02-月
+	RepayDay      int             `json:"repayDay"`                          // 每一期还款日
+	DaysOfYear    int             `json:"daysOfYear"`                        // 年天数 默认360
+	DaysOfMonth   int             `json:"daysOfMonth"`                       // 月天数 默认30
 
 	// NextRepayDate string        `json:"nextRepayDate"` // 下个还款日
 	// BillDay       string        `json:"billDay"`       // 账单日
