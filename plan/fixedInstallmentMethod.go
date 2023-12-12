@@ -13,7 +13,7 @@ import (
   *@Author pauline
   *@Date 2023/12/5 10:09
 **/
-func equalLoanRepayment(request *Request) (*Response, error) {
+func fixedInstallmentMethod(request *Request) (*Response, error) {
 	loanStartDateParseLocal, err := time.ParseInLocation(DATE_DASH_FORMAT, request.LoanStartDate, time.Local)
 	if err != nil {
 		return nil, errors.New("loanStartDate date format error: " + err.Error())
@@ -44,7 +44,7 @@ func equalLoanRepayment(request *Request) (*Response, error) {
 		LoanAmount:     request.LoanAmount,
 		InterestRate:   request.InterestRate,
 	}
-	err = equalLoanPlan(response, repayPlanRequest{
+	err = fixedInstallmentMethodPlan(response, repayPlanRequest{
 		LoanAmount:              request.LoanAmount,
 		LoanStartDate:           request.LoanStartDate,
 		LoanEndDate:             request.LoanEndDate,
@@ -60,35 +60,29 @@ func equalLoanRepayment(request *Request) (*Response, error) {
 	return response, nil
 }
 
-func equalLoanPlan(response *Response, request repayPlanRequest, daysInterestRate decimal.Decimal) error {
-	// 1.init
-	var sumTotalInterest, remainPrinciple, hasRepayPrincipal, sumTotalRepayAmount decimal.Decimal
+func fixedInstallmentMethodPlan(response *Response, request repayPlanRequest, daysInterestRate decimal.Decimal) error {
 
+	var sumTotalInterest, hasRepayPrincipal, sumTotalRepayAmount decimal.Decimal
 	records := make([]RepayPlanRecord, 0)
 
 	// 每期总还款金额(本金+利息)
-	everyPeriodRepayAmount, err := everyPeriodRepayTotalAmount(request.LoanAmount, request.PeriodInterestRate, request.TotalPeriodNum)
+	everyPeriodRepayAmount, err := calculateFixedInstallmentMethod(request.LoanAmount, request.PeriodInterestRate, request.TotalPeriodNum)
 	if err != nil {
 		return err
 	}
+
 	dateMap := calculatePeriodDate(request)
+
 	for i := 0; i < request.TotalPeriodNum; i++ {
 		periodStartDate := dateMap[i][0]
 		periodEndDate := dateMap[i][1]
 		periodRepayDate := dateMap[i][2]
 
-		// 剩余还款本金：第一期等于总贷款金额
-		if i == 0 {
-			remainPrinciple = request.LoanAmount
-		} else if i == request.TotalPeriodNum-1 { // 最后一期
-			remainPrinciple = request.LoanAmount.Sub(hasRepayPrincipal)
-		}
-
 		// 当前期次的计息天数
 		daysOfPeriod := getDaysBetweenDate(periodStartDate, periodEndDate)
 
 		// 当前期次的利息=当前剩余本金*计息天数*日利息
-		periodRepayInterest := remainPrinciple.Mul(daysInterestRate).Mul(decimal.NewFromInt(daysOfPeriod)).RoundBank(2)
+		periodRepayInterest := (request.LoanAmount.Sub(hasRepayPrincipal)).Mul(daysInterestRate).Mul(decimal.NewFromInt(daysOfPeriod)).RoundBank(2)
 
 		record := RepayPlanRecord{
 			PeriodNum:           i + 1,                                    // 当前期次的期数
@@ -101,16 +95,16 @@ func equalLoanPlan(response *Response, request repayPlanRequest, daysInterestRat
 
 		// if this is the last period 如果是最后一期
 		if i == request.TotalPeriodNum-1 {
+			remainPrinciple := request.LoanAmount.Sub(hasRepayPrincipal)
 			record.PeriodRepayPrinciple = remainPrinciple.RoundBank(2)               // 当前期次还款本金=上一期总的剩余还款本金
 			record.PeriodRepayTotalAmount = periodRepayInterest.Add(remainPrinciple) // 当前期次的总还款金额=当前期次的利息金额+当前期次还款本金
 			hasRepayPrincipal = hasRepayPrincipal.Add(remainPrinciple)               // 累积已还本金=累积已还本金+上一期总的剩余还款本金
 		} else {
 			// if this not the last period 非最后一期
-			PeriodRepayPrinciple := everyPeriodRepayAmount.Sub(periodRepayInterest) // 当前期次还款本金
-			hasRepayPrincipal = hasRepayPrincipal.Add(PeriodRepayPrinciple)         // 累积已还本金
-			record.PeriodRepayPrinciple = PeriodRepayPrinciple.Round(2)             // 当前期次还款本金
+			periodRepayPrinciple := everyPeriodRepayAmount.Sub(periodRepayInterest) // 当前期次还款本金
+			hasRepayPrincipal = hasRepayPrincipal.Add(periodRepayPrinciple)         // 累积已还本金
+			record.PeriodRepayPrinciple = periodRepayPrinciple.Round(2)             // 当前期次还款本金
 			record.PeriodRepayTotalAmount = everyPeriodRepayAmount                  // 当前期次的总还款金额(除了最后一期，其他期次一样的金额)
-			remainPrinciple = remainPrinciple.Sub(PeriodRepayPrinciple)             // 剩余还款本金
 		}
 
 		record.MaintainPrinciple = request.LoanAmount.Sub(hasRepayPrincipal) // 剩余还款本金
@@ -130,8 +124,8 @@ func equalLoanPlan(response *Response, request repayPlanRequest, daysInterestRat
 	return nil
 }
 
-// Calculate the repayable amount of Equal Installment repayment method
-func everyPeriodRepayTotalAmount(loanAmount, periodInterestRate decimal.Decimal, totalPeriodNum int) (decimal.Decimal, error) {
+// calculate the repayable amount of Fixed Installment Method
+func calculateFixedInstallmentMethod(loanAmount, periodInterestRate decimal.Decimal, totalPeriodNum int) (decimal.Decimal, error) {
 	planRepayAmount := decimal.Zero
 	//如果利率为0
 	if periodInterestRate.Equal(decimal.Zero) {
