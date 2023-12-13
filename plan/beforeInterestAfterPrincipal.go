@@ -1,63 +1,15 @@
 package main
 
 import (
-	"errors"
 	"github.com/shopspring/decimal"
-	"time"
 )
 
 /**
-  *@Description TODO
+  *@Description 先息后本：分期付息：除最后一期之外的前几期，每期仅需归还当期利息。到期还本：贷款到期日（末期）全额还本及相应的利息
   *@Author pauline
   *@Date 2023/12/5 10:19
 **/
-func beforeInterestAfterPrincipal(request *Request) (*Response, error) {
-	loanStartDateParseLocal, err := time.ParseInLocation(DATE_DASH_FORMAT, request.LoanStartDate, time.Local)
-	if err != nil {
-		return nil, errors.New("loanStartDate date format error: " + err.Error())
-	}
-
-	firstRepayDate, err := getFirstRepayDate(request, loanStartDateParseLocal)
-	if err != nil {
-		return nil, err
-	}
-	totalPeriodNum, err := getTotalPeriodNum(request, loanStartDateParseLocal)
-
-	err = getLoanEndDate(request, firstRepayDate)
-
-	loanEndDateParseLocal, err := time.ParseInLocation(DATE_DASH_FORMAT, request.LoanEndDate, time.Local)
-	if err != nil {
-		return nil, errors.New("loanStartDate date format error: " + err.Error())
-	}
-
-	periodInterestRate := calculatePeriodInterestRate(request.InterestRate, request.LoanCycleCode)
-
-	daysInterestRate := calculateDaysInterestRate(request.InterestRate, request.DaysOfYear)
-
-	response := &Response{
-		RepayMethod:    request.RepayMethod,
-		LoanStartDate:  request.LoanStartDate,
-		LoanEndDate:    request.LoanEndDate,
-		TotalPeriodNum: totalPeriodNum,
-		LoanAmount:     request.LoanAmount,
-		InterestRate:   request.InterestRate,
-	}
-	err = beforeInterestAfterPrincipalPlan(response, repayPlanRequest{
-		LoanAmount:              request.LoanAmount,
-		LoanStartDate:           request.LoanStartDate,
-		LoanEndDate:             request.LoanEndDate,
-		LoanCycleCode:           request.LoanCycleCode,
-		PeriodInterestRate:      periodInterestRate,
-		TotalPeriodNum:          totalPeriodNum,
-		FirstRepayDate:          firstRepayDate,
-		LoanStartDateParseLocal: loanStartDateParseLocal,
-		LoanEndDateParseLocal:   loanEndDateParseLocal,
-		RepayDay:                request.RepayDay,
-	}, daysInterestRate)
-	return response, nil
-
-}
-func beforeInterestAfterPrincipalPlan(response *Response, request repayPlanRequest, daysInterestRate decimal.Decimal) error {
+func beforeInterestAfterPrincipalPlan(request repayPlanRequest, response *Response) error {
 	var sumTotalInterest, sumTotalRepayAmount decimal.Decimal
 
 	records := make([]RepayPlanRecord, 0)
@@ -73,7 +25,7 @@ func beforeInterestAfterPrincipalPlan(response *Response, request repayPlanReque
 		daysOfPeriod := getDaysBetweenDate(periodStartDate, periodEndDate)
 
 		// 当前期次的利息金额=贷款本金*计息天数*日利息
-		periodRepayInterest := request.LoanAmount.Mul(daysInterestRate).Mul(decimal.NewFromInt(daysOfPeriod)).Round(2)
+		periodRepayInterest := request.LoanAmount.Mul(request.DaysInterestRate).Mul(decimal.NewFromInt(daysOfPeriod)).Round(2)
 
 		record := RepayPlanRecord{
 			PeriodNum:           i + 1,
