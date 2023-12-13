@@ -6,7 +6,7 @@ import (
 )
 
 /**
-  *@Description TODO
+  *@Description 利(息)随本清：在贷款的到期日，归还贷款全额本金及全部利息。无需分期归还贷款本息
   *@Author pauline
   *@Date 2023/12/5 10:18
 **/
